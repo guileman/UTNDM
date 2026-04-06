@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Informe Técnico Interactivo: SAE 1008 - UTN FRSN</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 1100px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; }
+        header { background-color: #003366; color: white; padding: 30px; text-align: center; border-radius: 8px; margin-bottom: 25px; }
+        .card { background: white; padding: 30px; margin-bottom: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        h2 { color: #003366; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        .calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #eef3f7; padding: 20px; border-radius: 8px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #004085; }
+        input { width: 90%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        input[readonly] { background-color: #e9ecef; cursor: not-allowed; }
+        .btn-calc { grid-column: span 2; background: #0056b3; color: white; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-calc:hover { background: #004494; }
+        
+        .results-box { grid-column: span 2; background: #d4edda; color: #155724; padding: 20px; border-radius: 4px; margin-top: 10px; display: none; }
+
+        .img-container { text-align: center; margin: 25px 0; }
+        img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; }
+        .code-block { background-color: #272822; color: #f8f8f2; padding: 20px; border-radius: 5px; font-family: monospace; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+        th { background: #f2f2f2; }
+        .chart-container { width: 100%; height: 450px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Memoria de Simulación y Verificación de Materiales</h1>
+    <p>Departamento de Modelización - Universidad Tecnológica Nacional (FRSN)</p>
+</header>
+
+<div class="card">
+    <h2>1. Configuración del Solver (Code_Aster)</h2>
+    <p>La resolución se realizó mediante un análisis estático no lineal, considerando la curva de tracción experimental del SAE 1008.</p>
+    <div class="code-block">
+        # Operador de resolución no lineal
+        resnonl = STAT_NON_LINE(
+            CHAM_MATER=CHMAT,
+            EXCIT=_F(CHARGE=CARG),
+            COMPORTEMENT=_F(RELATION='ELAS_PLAS', DEFORMATION='PETIT'),
+            INCREMENT=_F(LIST_INST=LISTI),
+            NEWTON=_F(MATRICE='TANGENTE', REACT_ITER=1)
+        )
+    </div>
+    <div class="img-container">
+        <img src="images/sae1008_mesh.png" alt="Malla de la Probeta">
+        <p><em>Figura 1: Discretización de la probeta Ø 6.4 mm.</em></p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>2. Calculadora de Propiedades Reales</h2>
+    <p>Ingrese los valores obtenidos en el post-proceso para calcular la respuesta mecánica real del material.</p>
+    
+    <div class="calc-grid">
+        <div class="input-group">
+            <label>Diámetro Inicial $d_0$ (mm)</label>
+            <input type="number" id="d0" value="6.4" readonly>
+        </div>
+        <div class="input-group">
+            <label>Longitud Inicial $L_0$ (mm)</label>
+            <input type="number" id="l0" value="185" readonly>
+        </div>
+        <div class="input-group">
+            <label>Diámetro Final $d_f$ (mm)</label>
+            <input type="number" id="df" placeholder="Ej: 5.6">
+        </div>
+        <div class="input-group">
+            <label>Longitud Final $L_f$ (mm)</label>
+            <input type="number" id="lf" placeholder="Ej: 210">
+        </div>
+        <div class="input-group">
+            <label>Tensión de Fluencia $\sigma_y$ (MPa)</label>
+            <input type="number" id="sy" placeholder="Ej: 230">
+        </div>
+        <div class="input-group">
+            <label>Tensión Máxima $\sigma_{max}$ (MPa)</label>
+            <input type="number" id="smax" placeholder="Ej: 510">
+        </div>
+        
+        <button class="btn-calc" onclick="calcular()">Calcular Tensión y Deformación Real</button>
+
+        <div id="results" class="results-box">
+            <strong>Resultados Calculados:</strong><br>
+            <span id="res_estriccion"></span><br>
+            <span id="res_def_real"></span><br>
+            <span id="res_ten_real"></span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>3. Análisis Gráfico Interactivo (Resultados Code_Aster)</h2>
+    <p>Gráficos generados a partir de los datos de reacción nodal. Los valores negativos han sido convertidos a magnitud absoluta para su análisis.</p>
+    
+    <div id="plot-carga" class="chart-container"></div>
+    <div id="plot-tension" class="chart-container"></div>
+</div>
+
+<div class="card">
+    <h2>4. Visualización de Post-proceso (ParaView)</h2>
+    <div class="img-container">
+        <img src="images/sae1008_vmis.png" alt="Von Mises">
+        <p><em>Figura 2: Campo de tensiones de Von Mises al final de la carga.</em></p>
+    </div>
+    <div class="img-container">
+        <img src="images/sae1008_Dx.png" alt="Desplazamientos Dx">
+        <p><em>Figura 3: Medición de estricción mediante Plot Over Line.</em></p>
+    </div>
+    <div class="img-container">
+        <img src="images/sae1008.png" alt="Curva Material">
+        <p><em>Figura 4: Curva Sigma-Epsilon ingresada en el simulador.</em></p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>5. Comparativa con Ensayo Real (SAE 1008)</h2>
+    <p>Análisis contrastado con el informe de laboratorio.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Variable</th>
+                <th>Simulación (Code_Aster)</th>
+                <th>Ensayo Real (PDF)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Tensión de Fluencia</td>
+                <td>230 MPa</td>
+                <td>288 MPa</td>
+            </tr>
+            <tr>
+                <td>Estricción ($Z$)</td>
+                <td>23.4%</td>
+                <td>45.0%</td>
+            </tr>
+            <tr>
+                <td>Tensión Máxima</td>
+                <td>510 MPa (Teórica)</td>
+                <td>397 MPa (Real)</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // --- DATOS DE CODE_ASTER ---
+    const instantes = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1];
+    const reacciones = [0, 5542.94, 9109.69, 9598.44, 10064.6, 10745.4, 11422.2, 12004.1, 12507.7, 12954.8, 13340.7, 13697.6, 14003.9, 14304.8, 14597.2, 14892, 15189.1, 15489.1, 15792.2, 16097.9, 16406.8];
+    
+    // Parámetros físicos
+    const d0 = 6.4;
+    const L0 = 185;
+    const A0 = 32.17;
+    const desplazamientoMax = 25; // mm
+
+    // Procesamiento para Gráficos
+    const desplReal = instantes.map(t => t * desplazamientoMax);
+    const tensionEng = reacciones.map(f => f / A0);
+    const deformacionEng = desplReal.map(d => d / L0);
+
+    // Gráfico de Carga - Desplazamiento
+    const traceCarga = {
+        x: desplReal,
+        y: reacciones,
+        mode: 'lines+markers',
+        name: 'Carga [N]',
+        line: {color: '#003366', width: 3},
+        marker: {size: 6, color: '#0056b3'}
+    };
+
+    const layoutCarga = {
+        title: 'Curva Carga vs Desplazamiento',
+        xaxis: {title: 'Desplazamiento [mm]'},
+        yaxis: {title: 'Fuerza de Reacción [N]'},
+        hovermode: 'closest'
+    };
+
+    Plotly.newPlot('plot-carga', [traceCarga], layoutCarga);
+
+    // Gráfico Tensión - Deformación
+    const traceTension = {
+        x: deformacionEng,
+        y: tensionEng,
+        mode: 'lines+markers',
+        name: 'Simulación',
+        line: {color: '#d62728', width: 3}
+    };
+
+    const layoutTension = {
+        title: 'Curva Tensión vs Deformación (Ingenieril)',
+        xaxis: {title: 'Deformación (ε) [mm/mm]'},
+        yaxis: {title: 'Tensión (σ) [MPa]'},
+        hovermode: 'closest'
+    };
+
+    Plotly.newPlot('plot-tension', [traceTension], layoutTension);
+
+    // --- FUNCIONES DE CALCULADORA ---
+    function calcular() {
+        const df = parseFloat(document.getElementById('df').value);
+        const lf = parseFloat(document.getElementById('lf').value);
+        const smax = parseFloat(document.getElementById('smax').value);
+
+        if (!df || !lf || !smax) {
+            alert("Por favor, ingrese todos los valores requeridos.");
+            return;
+        }
+
+        const af = Math.PI * Math.pow(df/2, 2);
+        const z = ((A0 - af) / A0) * 100;
+        const defReal = Math.log(lf / L0);
+        const tenReal = smax * (A0 / af);
+
+        document.getElementById('results').style.display = 'block';
+        document.getElementById('res_estriccion').innerHTML = "Reducción de Área (Estricción): <strong>" + z.toFixed(2) + "%</strong>";
+        document.getElementById('res_def_real').innerHTML = "Deformación Real ($\epsilon_{true}$): <strong>" + defReal.toFixed(4) + "</strong>";
+        document.getElementById('res_ten_real').innerHTML = "Tensión Real ($\sigma_{true}$): <strong>" + tenReal.toFixed(2) + " MPa</strong>";
+    }
+</script>
+
+<footer>
+    <p>Departamento de Modelización - UTN FRSN | San Nicolás, Argentina</p>
+</footer>
+
+</body>
+</html>

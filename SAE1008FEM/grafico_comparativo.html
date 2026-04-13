@@ -1,0 +1,44 @@
+<div id="plot-comparativa" class="chart-container"></div>
+<p class="caption">Gráfico: Validación Cruzada. Comparativa entre el ensayo de laboratorio (SAE 1008) y la respuesta del modelo numérico.</p>
+
+<script>
+    // --- DATOS EXPERIMENTALES (Extraídos de tu Excel) ---
+    const defEnsayo = [0, 0.0015, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.268];
+    const tenEnsayo = [0, 244.1, 280.5, 340.2, 385.4, 405.1, 411.5, 400.2, 390.1];
+
+    // --- DATOS SIMULACIÓN (Tus resultados de Aster) ---
+    const instantes = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1];
+    const reacciones = [0, 5542.94, 9109.69, 9598.44, 10064.6, 10745.4, 11422.2, 12004.1, 12507.7, 12954.8, 13340.7, 13697.6, 14003.9, 14304.8, 14597.2, 14892, 15189.1, 15489.1, 15792.2, 16097.9, 16406.8];
+    const A0 = 32.17; 
+    const L0 = 185;
+    const desplMax = 25;
+
+    const tenSim = reacciones.map(f => f / A0);
+    const defSim = instantes.map(t => (t * desplMax) / L0);
+
+    // --- CONFIGURACIÓN DE PLOTLY ---
+    const traceEnsayo = {
+        x: defEnsayo,
+        y: tenEnsayo,
+        mode: 'lines',
+        name: 'Ensayo Real (Excel)',
+        line: {color: '#d62728', width: 4, dash: 'dot'}
+    };
+
+    const traceSimulacion = {
+        x: defSim,
+        y: tenSim,
+        mode: 'lines',
+        name: 'Simulación (Aster)',
+        line: {color: '#003366', width: 3}
+    };
+
+    const layoutComp = {
+        title: 'Validación: Simulación vs Ensayo Real SAE 1008',
+        xaxis: {title: 'Deformación Ingenieril [mm/mm]', range: [0, 0.3]},
+        yaxis: {title: 'Tensión [MPa]', range: [0, 600]},
+        legend: {orientation: 'h', y: -0.2}
+    };
+
+    Plotly.newPlot('plot-comparativa', [traceEnsayo, traceSimulacion], layoutComp);
+</script>
